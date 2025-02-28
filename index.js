@@ -147,3 +147,7 @@ client.on("messageCreate", (message) => {
         message.channel.send("Pong!");
     }
 });
+
+setInterval(() => {
+    require("http").get(`http://localhost:${PORT}`);
+}, 2 * 60 * 1000); // Every 2 minutes
