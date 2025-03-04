@@ -2,16 +2,18 @@ require("dotenv").config();
 const fs = require("fs");
 const express = require("express");
 const { Client, GatewayIntentBits, EmbedBuilder } = require("discord.js");
+const cron = require("node-cron");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Keep Render web service active
+// Keep Fly.io web service active
 app.get("/", (req, res) => {
     res.send("Bot is running...");
 });
 app.listen(PORT, () => console.log(`🌍 Web server running on port ${PORT}`));
 
+// Initialize Discord Bot
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -25,13 +27,19 @@ const CHAT_CHANNEL_ID = process.env.CHAT_CHANNEL_ID;
 
 const playersData = JSON.parse(fs.readFileSync("players.json", "utf8"));
 const messagesList = JSON.parse(fs.readFileSync("messages.json", "utf8"));
+const sentRaids = new Set(); // Store already announced raids
 
 client.once("ready", () => {
     console.log(`✅ Bot connecté en tant que ${client.user.tag}`);
-    setInterval(checkAllRaidEvents, 30 * 60 * 1000); // Runs every 30 minutes
+    cron.schedule("46 20 * * *", () => {
+        console.log("Running scheduled check at 20:46");
+        checkAllRaidEvents();
+    }, {
+        timezone: "UTC"
+    });
 });
 
-// Fetch all messages and check events
+// Function to check messages
 async function checkAllRaidEvents() {
     try {
         const targetChannel = await client.channels.fetch(TARGET_CHANNEL_ID);
@@ -124,16 +132,7 @@ async function processRaidEvent(eventMessage, chatChannel) {
                 iconURL: client.user.displayAvatarURL(),
             });
 
-        const sentMessage = await chatChannel.send({ embeds: [embeddedMessage] });
-
-        setTimeout(async () => {
-            try {
-                await sentMessage.delete();
-            } catch (error) {
-                console.error("Erreur lors de la suppression du message :", error);
-            }
-        }, (deleteTimestamp - now) * 1000);
-
+        await chatChannel.send({ embeds: [embeddedMessage] });
     } catch (error) {
         console.error("Erreur lors du traitement d'un raid :", error);
     }
